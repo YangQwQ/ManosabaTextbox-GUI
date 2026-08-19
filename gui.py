@@ -376,7 +376,7 @@ class ManosabaMainWindow(QMainWindow):
             return
         
         self.is_generating = True
-        self.update_status("正在生成图片...")
+        self.update_status("正在剪切文本...")
         
         def generate_in_thread():
             try:
@@ -400,7 +400,9 @@ class ManosabaMainWindow(QMainWindow):
     def _on_generation_complete(self, result):
         """生成完成后的回调函数"""
         self.update_status(result)
-        self.update_preview()
+        # 生成成功才刷新预览（成功消息始终含"用时:"）；剪切失败/白名单外/合成失败时直接结束，避免误导
+        if "用时:" in result:
+            self.update_preview()
     
     @Slot(str)
     def update_status(self, message):
@@ -616,8 +618,36 @@ class ManosabaMainWindow(QMainWindow):
             widgets[self.background_tab.layer_index] = self.background_tab
         return widgets
                     
+def _ensure_admin():
+    """Windows 下强制以管理员权限运行。
+
+    本程序需向前台窗口注入 Ctrl+A/X/V 完成剪切，若目标程序（如 QQ/微信）以管理员
+    权限运行，未提权的本进程会被 UIPI 拦截导致剪切静默失败。因此要求本程序必须以
+    管理员身份运行；非管理员时通过 UAC 请求提权后自动重启并退出。
+    """
+    if not sys.platform.startswith("win"):
+        return
+    import ctypes
+    try:
+        if ctypes.windll.shell32.IsUserAnAdmin():
+            return
+    except Exception:
+        return
+    # 当前非管理员，请求提权并以管理员身份重新启动
+    try:
+        if getattr(sys, "frozen", False):
+            command = " ".join(sys.argv[1:])          # exe 模式下 argv[0] 即自身
+        else:
+            command = " ".join(sys.argv)              # 脚本模式需带上脚本路径
+        ctypes.windll.shell32.ShellExecuteW(
+            None, "runas", sys.executable, command, None, 1)
+    finally:
+        sys.exit(1)
+
+
 def main():
     """主函数"""
+    _ensure_admin()
     app = QApplication(sys.argv)
     
     # 设置应用程序图标

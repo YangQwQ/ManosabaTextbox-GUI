@@ -4,6 +4,7 @@ from utils.clipboard_utils import ClipboardManager
 from utils.sentiment_analyzer import SentimentAnalyzer
 from image_processor import get_enhanced_loader, generate_image_with_dll, set_dll_global_config, clear_cache, update_dll_gui_settings, draw_content_auto
 
+import os
 import time
 import re
 import random
@@ -36,6 +37,7 @@ def _calculate_canvas_size():
         height = 854
     
     return (2560, height)
+
 
 class ManosabaCore(QObject):  # 继承 QObject 以支持信号
     """魔裁文本框核心类"""
@@ -534,6 +536,9 @@ class ManosabaCore(QObject):  # 继承 QObject 以支持信号
 
         if text == "" and image is None:
             return "错误: 没有文本或图像"
+
+        # 内容已获取，进入图像合成阶段
+        self.status_updated.emit("正在生成图片...")
 
         try:
             print(f"[{int((time.time()-start_time)*1000)}] 开始图像合成")
